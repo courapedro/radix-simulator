@@ -485,9 +485,10 @@ let tree = new RadixTree();
 function resize() {
     const bounds = canvas.parentElement.getBoundingClientRect();
     const pixelRatio = window.devicePixelRatio || 1;
-    canvas.width = Math.floor(bounds.width * pixelRatio);
+    const renderWidth = Math.max(1, bounds.width);
+    canvas.width = Math.floor(renderWidth * pixelRatio);
     canvas.height = Math.floor(bounds.height * pixelRatio);
-    canvas.style.width = `${bounds.width}px`;
+    canvas.style.width = `${renderWidth}px`;
     canvas.style.height = `${bounds.height}px`;
     ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
     calculateLayout();
@@ -582,8 +583,9 @@ function renderSidebar(selectedNode = null) {
 function calculateLayout() {
     if (!tree.root) return;
     
-    const levelHeight = Math.max(68, Math.min(92, canvas.clientHeight / 5));
-    const paddingX = Math.max(32, Math.min(100, canvas.clientWidth * 0.08));
+    const isCompact = canvas.clientWidth < 560;
+    const levelHeight = Math.max(isCompact ? 58 : 68, Math.min(92, canvas.clientHeight / 5));
+    const paddingX = Math.max(isCompact ? 18 : 32, Math.min(100, canvas.clientWidth * 0.08));
 
     // First pass: assign logical width to each node to space them out
     function assignWidth(node) {
@@ -672,8 +674,20 @@ function animate(time) {
             const midY = (node.y + child.y) / 2;
             
             // Label background (glassy)
-            ctx.font = "14px system-ui, sans-serif";
+            const labelFontSize = Math.max(9, Math.min(14, canvas.clientWidth / 38));
+            ctx.font = `${labelFontSize}px system-ui, sans-serif`;
             let tw = ctx.measureText(edge.label).width;
+            const maxLabelWidth = Math.max(24, Math.abs(child.x - node.x) - 10);
+            if (tw > maxLabelWidth) {
+                let label = edge.label;
+                while (label.length > 1 && ctx.measureText(`${label}...`).width > maxLabelWidth) {
+                    label = label.slice(0, -1);
+                }
+                edge.displayLabel = `${label}...`;
+                tw = ctx.measureText(edge.displayLabel).width;
+            } else {
+                edge.displayLabel = edge.label;
+            }
             
             ctx.fillStyle = nodeBg;
             ctx.beginPath();
@@ -684,7 +698,7 @@ function animate(time) {
             if (child.highlightTimer > 0) ctx.fillStyle = accentColor;
             ctx.textAlign = "center";
             ctx.textBaseline = "middle";
-            ctx.fillText(edge.label, midX, midY);
+            ctx.fillText(edge.displayLabel, midX, midY);
         }
     }
 
